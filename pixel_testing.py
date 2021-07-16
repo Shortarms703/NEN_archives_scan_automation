@@ -129,13 +129,14 @@ def find_margins(path, first_image=False, last_image=False):
 dir_path = '/Users/joshua/Desktop/NEN archives'
 # years = sorted(os.listdir(dir_path))[4:-6]
 years = sorted(os.listdir(dir_path))[4:-6]
+years = ['1983_04 April']
 # images.remove('.DS_Store')
 largest_crop = {'left': float('inf'), 'right': 0, 'top': float('inf'), 'bottom': 0}
 for image_directory in years:
     jpg_list = sorted(os.listdir(os.path.join(dir_path, image_directory)))
     jpg_list = [x for x in jpg_list if all(['.pdf' not in x, '.DS_Store' not in x])]
     for i, image_file_name in enumerate(jpg_list):
-        # print(image_file_name)
+        print(image_file_name)
         if image_file_name.endswith('.pdf'):
             continue
         if i == 0:
@@ -149,25 +150,40 @@ for image_directory in years:
         img = cv.imread(os.path.join(dir_path, image_directory, image_file_name))
 
         img = cv.cvtColor(img, cv.COLOR_RGB2BGR)
-        crop_img = img[largest_crop['top']:largest_crop['bottom'], largest_crop['left']:largest_crop['right']]
-        left_crop_img = crop_img[:, :crop_img.shape[1]//2]
-        right_crop_img = crop_img[:, crop_img.shape[1]//2:crop_img.shape[1]]
-        if i != 0:
-            # img_list.append(Image.fromarray(left_crop_img))
-            img_list.append(left_crop_img)
-            # plt.imshow(left_crop_img)
-            # plt.axis('off')
-            # plt.show()
-            # cv.imwrite('1980_06 June_cropped/' + 'page' + str(i + 1) + '_cropped.jpg', left_crop_img)
-        if i != len(jpg_list) - 1:
-            # img_list.append(Image.fromarray(right_crop_img))
-            img_list.append(right_crop_img)
-            # plt.imshow(right_crop_img)
-            # plt.axis('off')
-            # plt.show()
-            # cv.imwrite('1980_06 June_cropped/' + 'page' + str(i + 1) + '_cropped.jpg', right_crop_img)
-    if len(img_list) == 0:
-        continue
-    pdf_filename = os.path.join(dir_path, image_directory, image_directory + '_cropped.pdf')
-    Image.fromarray(img_list[0]).save(pdf_filename, 'PDF', resolution=100.0, save_all=True, append_images=[Image.fromarray(x) for x in img_list[1:]])
-    print('done ' + image_directory)
+
+        size_ratio = [11.375, 14.5]
+
+        width = (largest_crop['right'] + largest_crop['left']) // 2
+        height = (largest_crop['top'] + largest_crop['bottom']) // 2
+        print(width, height)
+        if height / width > 14.5 / 11.375:
+            # too tall
+            height = 14.5 / 11.375 * width
+        else:
+            width = 11.375 * height / 14.5
+        print()
+        # # crop_img = img[largest_crop['top']:largest_crop['bottom'], largest_crop['left']:largest_crop['right']]
+        # # left_crop_img = crop_img[:, :crop_img.shape[1]//2]
+        # img = cv.rectangle(img, (largest_crop['left'], largest_crop['top']), (largest_crop['right'], largest_crop['bottom']), (255, 255, 0), 3)
+        # img = cv.line(img, ((largest_crop['left'] + largest_crop['right'])//2, 0), ((largest_crop['left'] + largest_crop['right'])//2, img.shape[0]), (255, 255, 0), 3)
+        # # right_crop_img = crop_img[:, crop_img.shape[1]//2:crop_img.shape[1]]
+        # plt.imshow(img)
+        # plt.axis('off')
+        # plt.show()
+        # # if i != 0:
+        # #     # img_list.append(Image.fromarray(left_crop_img))
+        # #     img_list.append(left_crop_img)
+        # #     plt.imshow(left_crop_img)
+        # #     plt.axis('off')
+        # #     plt.show()
+        # # if i != len(jpg_list) - 1:
+        # #     # img_list.append(Image.fromarray(right_crop_img))
+        # #     img_list.append(right_crop_img)
+        # #     plt.imshow(right_crop_img)
+        # #     plt.axis('off')
+        # #     plt.show()
+    # # if len(img_list) == 0:
+    # #     continue
+    # # pdf_filename = os.path.join(dir_path, image_directory, image_directory + '_cropped.pdf')
+    # # Image.fromarray(img_list[0]).save(pdf_filename, 'PDF', resolution=100.0, save_all=True, append_images=[Image.fromarray(x) for x in img_list[1:]])
+    # # print('done ' + image_directory)
