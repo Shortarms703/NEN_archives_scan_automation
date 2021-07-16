@@ -22,7 +22,7 @@ def pixel_difference(p1, p2):
     return distance
 
 
-def find_lr_side_margin(img_path, side, x_start, x_end, y_start, y_end, inner_step=5, outer_step=20, min_pixel_diff=25, min_edge_points=30):
+def find_lr_side_margin(img_path, side, x_start, x_end, y_start, y_end, inner_step=5, outer_step=20, min_pixel_diff=25, max_pixel_diff=50, min_edge_points=30):
     img = cv.imread(img_path)
     edge_points = []
     for y in range(y_start, y_end, outer_step):
@@ -30,13 +30,16 @@ def find_lr_side_margin(img_path, side, x_start, x_end, y_start, y_end, inner_st
             last = img[y, x_start]
             x_step = inner_step
         if side == 'right':
-            x_start = int(3007 if x_start == 3008 else x_start)
+            x_start = int(3007 if x_start == 3008 else x_start) # TODO img dimensions should be from shape
             last = img[y, x_start - 1]
             x_step = -1 * inner_step
         for x in range(x_start, x_end, x_step):
             # x = x * inner_step
             current = img[y, x]
             diff = pixel_difference(current, last)
+            if diff > max_pixel_diff: # TODO make this look at a single rbg/hsv value
+                edge_points.append([[0 if side == 'left' else 2000][0], y]) # TODO img dimensions should be from shape
+                break
             if diff > min_pixel_diff:
                 edge_points.append([x, y])
                 break
@@ -56,18 +59,21 @@ def draw_margin_line(img, edge_points, average, thickness=3, top_bottom=False):
     return img
 
 
-def find_margins(path, first_image=False, last_image=False):
+def find_margins(path, first_image=False, last_image=False, min_pixel_diff=25, max_pixel_diff=50):
     # TODO draw margins should take averages from sides and draw the margins at the very end
     img = cv.imread(path)
     shape = img.shape
     shape = {'x': shape[1], 'y': shape[0]}
     sides = {} # left right top bottom middle
+    all_edge_points = [] # debug
 
     side = 'left'
     if first_image is True:
-        edge_points = find_lr_side_margin(path, side, shape['x'] // 2 - 200, shape['x'] // 2 + 300, 0, shape['y'])
+        edge_points = find_lr_side_margin(path, side, shape['x'] // 2 - 200, shape['x'] // 2 + 300, 0, shape['y'], min_pixel_diff=min_pixel_diff, max_pixel_diff=max_pixel_diff)
     else:
-        edge_points = find_lr_side_margin(path, side, 0, 500, 0, shape['y'])
+        edge_points = find_lr_side_margin(path, side, 0, 500, 0, shape['y'], min_pixel_diff=min_pixel_diff, max_pixel_diff=max_pixel_diff)
+
+    [all_edge_points.append(x) for x in edge_points] # debug
 
     x_edge_points = [x[0] for x in edge_points]
     average = sum(x_edge_points) // len(x_edge_points)
@@ -79,11 +85,14 @@ def find_margins(path, first_image=False, last_image=False):
 
     side = 'right'
     if last_image is True:
-        edge_points = find_lr_side_margin(path, side, shape['x'] // 2 + 200, shape['x'] // 2 - 300, 0, shape['y'])
+        edge_points = find_lr_side_margin(path, side, shape['x'] // 2 + 200, shape['x'] // 2 - 300, 0, shape['y'], min_pixel_diff=min_pixel_diff, max_pixel_diff=max_pixel_diff)
     else:
-        edge_points = find_lr_side_margin(path, side, shape['x'], shape['x'] - 500, 0, shape['y'])
+        edge_points = find_lr_side_margin(path, side, shape['x'], shape['x'] - 500, 0, shape['y'], min_pixel_diff=min_pixel_diff, max_pixel_diff=max_pixel_diff)
 
-    x_edge_points = [x[1] for x in edge_points]
+    [all_edge_points.append(x) for x in edge_points] # debug
+
+
+    x_edge_points = [x[0] for x in edge_points]
     average = sum(x_edge_points) // len(x_edge_points)
     sides[side] = average
 
@@ -107,10 +116,15 @@ def find_margins(path, first_image=False, last_image=False):
 
                 current = img[py, px]
                 diff = pixel_difference(current, last)
-                if diff > 25:
+                if diff > max_pixel_diff: # TODO make this look at a single rbg/hsv value
+                    edge_points.append([px, [0 if side == 'top' else 3008][0]]) # TODO img dimensions should be from shape
+                    break
+                if diff > min_pixel_diff:
                     edge_points.append([px, py])
                     break
                 last = img[py, px].copy()
+
+        [all_edge_points.append(x) for x in edge_points]  # debug
 
         edge_y = [x[1] for x in edge_points]
         average = sum(edge_y) // len(edge_y)
@@ -130,7 +144,7 @@ def find_margins(path, first_image=False, last_image=False):
 
     # img = cv.cvtColor(img, cv.COLOR_RGB2BGR) # idk if this is needed, might be getting reversed later
 
-    return sides, middle_points
+    return sides, middle_points, all_edge_points
 
 
 # images = sorted(os.listdir('1980_06 June'))
@@ -147,16 +161,19 @@ for image_directory in years:
     edition_sides = []
     for i, image_file_name in enumerate(jpg_list):
         print(image_file_name)
-
+        min_pixel_diff = 25
         if i == 0: # if its the first page
-            sides, middle_points = find_margins(os.path.join(dir_path, image_directory, image_file_name), first_image=True)
+            sides, middle_points, all_edge_points = find_margins(os.path.join(dir_path, image_directory, image_file_name), first_image=True, min_pixel_diff=min_pixel_diff)
         elif i == len(image_directory) - 1: # if its the last page
-            sides, middle_points = find_margins(os.path.join(dir_path, image_directory, image_file_name), last_image=True)
+            sides, middle_points, all_edge_points = find_margins(os.path.join(dir_path, image_directory, image_file_name), last_image=True, min_pixel_diff=min_pixel_diff)
         else: # not first or last page
-            sides, middle_points = find_margins(os.path.join(dir_path, image_directory, image_file_name))
+            sides, middle_points, all_edge_points = find_margins(os.path.join(dir_path, image_directory, image_file_name), min_pixel_diff=min_pixel_diff)
         edition_sides.append(sides)
         img = cv.imread(os.path.join(dir_path, image_directory, image_file_name))
         img = cv.rectangle(img, (sides['left'], sides['top']), (sides['right'], sides['bottom']), (255, 0, 0), 3)
+        for each in all_edge_points:
+            img = cv.circle(img, (each[0], each[1]), 3, (0, 0, 255), -1)
+        img = cv.cvtColor(img, cv.COLOR_RGB2BGR)
         plt.imshow(img)
         plt.axis('off')
         plt.show()
@@ -170,7 +187,6 @@ for image_directory in years:
     for i, image_file_name in enumerate(jpg_list):
         img = cv.imread(os.path.join(dir_path, image_directory, image_file_name))
         img = cv.cvtColor(img, cv.COLOR_RGB2BGR) # TODO find out which ones are needed
-        img = cv.cvtColor(img, cv.COLOR_RGB2BGR)
         size_ratio = [11.375, 14.5]
 
         # TODO change these:
