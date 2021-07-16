@@ -43,48 +43,53 @@ def find_lr_side_margin(img_path, side, x_start, x_end, y_start, y_end, inner_st
             last = img[y, x]
 
     if len(edge_points) < min_edge_points:
-        return 'only one page found'
+        raise ValueError('No margin found for image:' + img_path)
     else:
         return edge_points
 
 
-def draw_margin_line(img, edge_points, thickness=3, top_bottom=False):
+def draw_margin_line(img, edge_points, average, thickness=3, top_bottom=False):
     if top_bottom is True:
-        edge_y = [x[1] for x in edge_points]
-        average = sum(edge_y) // len(edge_y)
-        # img = cv.line(img, (edge_points[0][0], average), (edge_points[-1][0], average), (0, 0, 255), thickness)
+        img = cv.line(img, (edge_points[0][0], average), (edge_points[-1][0], average), (0, 0, 255), thickness)
     else:
-        edge_x = [x[0] for x in edge_points]
-        average = sum(edge_x) // len(edge_x)
-        # img = cv.line(img, (average, edge_points[0][1]), (average, edge_points[-1][1]), (0, 0, 255), thickness)
-    return img, average
+        img = cv.line(img, (average, edge_points[0][1]), (average, edge_points[-1][1]), (0, 0, 255), thickness)
+    return img
 
 
 def find_margins(path, first_image=False, last_image=False):
+    # TODO draw margins should take averages from sides and draw the margins at the very end
     img = cv.imread(path)
     shape = img.shape
     shape = {'x': shape[1], 'y': shape[0]}
-    sides = {}
+    sides = {} # left right top bottom middle
 
     side = 'left'
-    edge_points = find_lr_side_margin(path, side, 0, 500, 0, shape['y'])
-    if edge_points == 'only one page found':
+    if first_image is True:
         edge_points = find_lr_side_margin(path, side, shape['x'] // 2 - 200, shape['x'] // 2 + 300, 0, shape['y'])
-        sides['single'] = 'right'
-    img, average = draw_margin_line(img, edge_points)
+    else:
+        edge_points = find_lr_side_margin(path, side, 0, 500, 0, shape['y'])
+
+    x_edge_points = [x[0] for x in edge_points]
+    average = sum(x_edge_points) // len(x_edge_points)
     sides[side] = average
-    if average < largest_crop['left'] and 'single' not in sides:
-        largest_crop['left'] = average
+
+    # TODO deal with this:
+    # if average < largest_crop['left'] and 'single' not in sides:
+    #     largest_crop['left'] = average
 
     side = 'right'
-    edge_points = find_lr_side_margin(path, side, shape['x'], shape['x'] - 500, 0, shape['y'])
-    if edge_points == 'only one page found':
+    if last_image is True:
         edge_points = find_lr_side_margin(path, side, shape['x'] // 2 + 200, shape['x'] // 2 - 300, 0, shape['y'])
-        sides['single'] = 'left'
-    img, average = draw_margin_line(img, edge_points)
+    else:
+        edge_points = find_lr_side_margin(path, side, shape['x'], shape['x'] - 500, 0, shape['y'])
+
+    x_edge_points = [x[1] for x in edge_points]
+    average = sum(x_edge_points) // len(x_edge_points)
     sides[side] = average
-    if average > largest_crop['right'] and 'single' not in sides:
-        largest_crop['right'] = average
+
+    # TODO deal with this:
+    # if average > largest_crop['right'] and 'single' not in sides:
+    #     largest_crop['right'] = average
 
 
     inner_step = 5
@@ -107,22 +112,25 @@ def find_margins(path, first_image=False, last_image=False):
                     break
                 last = img[py, px].copy()
 
-        img, average = draw_margin_line(img, edge_points, top_bottom=True)
+        edge_y = [x[1] for x in edge_points]
+        average = sum(edge_y) // len(edge_y)
         sides[side] = average
-        if average < largest_crop['top'] and side == 'top' and 'single' not in sides:
-            largest_crop[side] = average
-        if average > largest_crop['bottom'] and side == 'bottom' and 'single' not in sides:
-            largest_crop[side] = average
 
-    if 'single' not in sides:
-        # find middle here! or not?
-        middle = (sides['right'] + sides['left']) // 2
-        # img = cv.line(img, (middle, 0), (middle, shape['y']), (0, 0, 255), 3)
+        # TODO fix this
+        # if average < largest_crop['top'] and side == 'top' and 'single' not in sides:
+        #     largest_crop[side] = average
+        # if average > largest_crop['bottom'] and side == 'bottom' and 'single' not in sides:
+        #     largest_crop[side] = average
 
-    # if True not in [first_image, last_image]:
-    #     img = cv.rectangle(img, (largest_crop['left'], largest_crop['top']), (largest_crop['right'], largest_crop['bottom']), (255, 255, 0), 4)
-    img = cv.cvtColor(img, cv.COLOR_RGB2BGR)
-    return [img]
+    # TODO find middle
+
+
+    # TODO then find middle points
+    middle_points = {'left', 'right'}
+
+    # img = cv.cvtColor(img, cv.COLOR_RGB2BGR) # idk if this is needed, might be getting reversed later
+
+    return sides, middle_points
 
 
 # images = sorted(os.listdir('1980_06 June'))
@@ -131,37 +139,53 @@ dir_path = '/Users/joshua/Desktop/NEN archives'
 years = sorted(os.listdir(dir_path))[4:-6]
 years = ['1983_04 April']
 # images.remove('.DS_Store')
-largest_crop = {'left': float('inf'), 'right': 0, 'top': float('inf'), 'bottom': 0}
+largest_box = {'x': 0, 'y': 0}
 for image_directory in years:
     jpg_list = sorted(os.listdir(os.path.join(dir_path, image_directory)))
     jpg_list = [x for x in jpg_list if all(['.pdf' not in x, '.DS_Store' not in x])]
+
+    edition_sides = []
     for i, image_file_name in enumerate(jpg_list):
         print(image_file_name)
-        if image_file_name.endswith('.pdf'):
-            continue
-        if i == 0:
-            images_with_margins = find_margins(os.path.join(dir_path, image_directory, image_file_name), first_image=True)
-        elif i == len(image_directory) - 1:
-            images_with_margins = find_margins(os.path.join(dir_path, image_directory, image_file_name), last_image=True)
-        else:
-            images_with_margins = find_margins(os.path.join(dir_path, image_directory, image_file_name))
+
+        if i == 0: # if its the first page
+            sides, middle_points = find_margins(os.path.join(dir_path, image_directory, image_file_name), first_image=True)
+        elif i == len(image_directory) - 1: # if its the last page
+            sides, middle_points = find_margins(os.path.join(dir_path, image_directory, image_file_name), last_image=True)
+        else: # not first or last page
+            sides, middle_points = find_margins(os.path.join(dir_path, image_directory, image_file_name))
+        edition_sides.append(sides)
+        img = cv.imread(os.path.join(dir_path, image_directory, image_file_name))
+        img = cv.rectangle(img, (sides['left'], sides['top']), (sides['right'], sides['bottom']), (255, 0, 0), 3)
+        plt.imshow(img)
+        plt.axis('off')
+        plt.show()
+
+    # finds largest box for a page
+    for sides in edition_sides:
+        pass
+
+    continue
     img_list = []
     for i, image_file_name in enumerate(jpg_list):
         img = cv.imread(os.path.join(dir_path, image_directory, image_file_name))
-
+        img = cv.cvtColor(img, cv.COLOR_RGB2BGR) # TODO find out which ones are needed
         img = cv.cvtColor(img, cv.COLOR_RGB2BGR)
-
         size_ratio = [11.375, 14.5]
 
-        width = (largest_crop['right'] + largest_crop['left']) // 2
-        height = (largest_crop['top'] + largest_crop['bottom']) // 2
-        print(width, height)
+        # TODO change these:
+        # width = (largest_box['right'] + largest_box['left']) // 2
+        # height = (largest_box['top'] + largest_box['bottom']) // 2
+        # print(width, height)
         if height / width > 14.5 / 11.375:
             # too tall
             height = 14.5 / 11.375 * width
         else:
             width = 11.375 * height / 14.5
-        print()
+
+
+
+
         # # crop_img = img[largest_crop['top']:largest_crop['bottom'], largest_crop['left']:largest_crop['right']]
         # # left_crop_img = crop_img[:, :crop_img.shape[1]//2]
         # img = cv.rectangle(img, (largest_crop['left'], largest_crop['top']), (largest_crop['right'], largest_crop['bottom']), (255, 255, 0), 3)
