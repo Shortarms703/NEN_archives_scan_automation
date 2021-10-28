@@ -24,7 +24,6 @@ Example:
 
 import argparse
 import os
-import shutil
 from enum import Enum
 import io
 
@@ -116,6 +115,8 @@ for filein in imgs:
     response = client.document_text_detection(image=image)
 
     image = Image.open(filein)
+    # bounds = get_document_bounds(response, FeatureType.BLOCK)
+    # draw_boxes(image, bounds, 'blue')
     bounds = get_document_bounds(response, FeatureType.PARA)
     text_bounds = {'left': 10000, 'right': 0, 'top': 10000, 'bottom': 0}
 
@@ -152,13 +153,13 @@ for filein in imgs:
     #     middle, text_bounds['bottom']], None, 'red')
     fileout = os.path.join('/Users/joshua/PycharmProjects/NEN_archives/new_and_improved/temp', filein.split('/')[-1].strip('.jpg') + '_crop.jpg')
     image.save(fileout)
+    # img_list.append(fileout)
     all_bounds.append(text_bounds)
-
 
 # split pages into left and right
 max_bounds = {'top': min([x['top'] for x in all_bounds]), 'bot': max([x['bottom'] for x in all_bounds]), 'left': min([x['left'] for x in all_bounds]), 'right': max([x['right'] for x in all_bounds])}
-directory = '/Users/joshua/PycharmProjects/NEN_archives/new_and_improved/temp'
 
+directory = '/Users/joshua/PycharmProjects/NEN_archives/new_and_improved/temp'
 pages = [os.path.join(directory, x) for x in sorted(os.listdir(directory)) if x.lower().endswith(('.jpg', '.jpeg'))]
 middle = (max_bounds['left'] + max_bounds['right']) // 2
 for n, page in enumerate(pages):
@@ -196,22 +197,14 @@ canv = canvas.Canvas('/Users/joshua/PycharmProjects/NEN_archives/new_and_improve
 
 for image_path in img_list:
     canv.setPageSize(((max_bounds['right'] - max_bounds['left']) / 2, (max_bounds['bot']) - (max_bounds['top']))) # padding can be moved here
+    # canv.setPageSize(((max_bounds['right'] - max_bounds['left']), (max_bounds['bot']) - (max_bounds['top']))) # padding can be moved here
+    # canv.setPageSize((3008, 2000))
+    # canv.setFillColor('black', alpha=1)
     canv.drawImage(image_path, 0, 0)
     canv.showPage()
 
 canv.save()
 
-for filename in os.listdir(directory):
-    # shutil.rmtree(os.path.join(directory, file_path))
-    file_path = os.path.join(filename, filename)
-
-    try:
-        if os.path.isfile(file_path) or os.path.islink(file_path):
-            os.unlink(file_path)
-        elif os.path.isdir(file_path):
-            shutil.rmtree(file_path)
-    except Exception as e:
-        print('Failed to delete %s. Reason: %s' % (file_path, e))
 
 stop = timeit.default_timer()
 print('Time: ', stop - start)
