@@ -24,6 +24,7 @@ Example:
 
 import argparse
 import os
+import shutil
 from enum import Enum
 import io
 
@@ -197,14 +198,21 @@ canv = canvas.Canvas('/Users/joshua/PycharmProjects/NEN_archives/new_and_improve
 
 for image_path in img_list:
     canv.setPageSize(((max_bounds['right'] - max_bounds['left']) / 2, (max_bounds['bot']) - (max_bounds['top']))) # padding can be moved here
-    # canv.setPageSize(((max_bounds['right'] - max_bounds['left']), (max_bounds['bot']) - (max_bounds['top']))) # padding can be moved here
-    # canv.setPageSize((3008, 2000))
-    # canv.setFillColor('black', alpha=1)
     canv.drawImage(image_path, 0, 0)
     canv.showPage()
 
 canv.save()
 
+
+for filename in os.listdir(directory):
+    file_path = os.path.join(directory, filename)
+    try:
+        if os.path.isfile(file_path) or os.path.islink(file_path):
+            os.unlink(file_path)
+        elif os.path.isdir(file_path):
+            shutil.rmtree(file_path)
+    except Exception as e:
+        print('Failed to delete %s. Reason: %s' % (file_path, e))
 
 stop = timeit.default_timer()
 print('Time: ', stop - start)
