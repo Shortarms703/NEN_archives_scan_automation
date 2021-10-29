@@ -101,13 +101,12 @@ def get_document_bounds(response, feature):
     return bounds
 
 
-directory_top = '/Users/joshua/NEN archives'
-editions = sorted(os.listdir('/Users/joshua/NEN archives'))[4:-6]
+directory_top = '/Users/joshua/NEN Archives Leveled + missing pages'
+editions = sorted(os.listdir(directory_top))[1:] # [4:-6]
 
-editions = editions[9:] # temporary
-
+start = timeit.default_timer()
 for edition in editions:
-    start = timeit.default_timer()
+    start2 = timeit.default_timer()
     print(edition)
     edition_path = os.path.join(directory_top, edition)
     # directory = '/Users/joshua/PycharmProjects/NEN_archives/1980_06 June'
@@ -224,5 +223,8 @@ for edition in editions:
         except Exception as e:
             print('Failed to delete %s. Reason: %s' % (file_path, e))
 
-    stop = timeit.default_timer()
-    print('Time: ', stop - start)
+    stop2 = timeit.default_timer()
+    print('Time: ', stop2 - start2)
+stop = timeit.default_timer()
+print('Time: ', stop - start)
+# check 1972 december for black bars
